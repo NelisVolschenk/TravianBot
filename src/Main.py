@@ -4,32 +4,45 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 import random
-from .utils import log
 from .custom_driver import Client
 from threading import Thread
 
 
 class TravBot:
 
-    def __init__(self, url: str, username: str, password: str, start_args: list, debug: bool = False,
-                 startmethod: str = "") -> None:
+    def __init__(self, url: str, username: str, password: str, start_args: list, debug: bool = False, startmethod: str = 'firefox') -> None:
         self.url = url
         self.browser = Client(debug=debug)
         self.username = username
         self.password = password
-        self.driver = None
+        self.start_method = startmethod
         self.initialise()
-        self.startmethod = startmethod
+
 
     def initialise(self):
+        login_req = True
+        login_sleeptime = 0
+        manual_login = False
 
-        if self.startmethod == 'remote':
+        if self.start_method == 'remote':
             self.browser.remote()
-        elif self.startmethod == 'headless':
+            #login_req = False
+        elif self.start_method == 'headless':
             self.browser.headless()
+        elif self.start_method == 'manual':
+            login_sleeptime = 120
+            login_req = False
 
         if self.browser.driver is None:
-            self.driver = webdriver.Firefox()
+            self.browser.firefox()
+
+        if login_req is True:
+            self.login()
+
+        if manual_login is True:
+            self.browser.get(self.url)
+            time.sleep(login_sleeptime)
+
 
     def login(self) -> None:
 
@@ -37,16 +50,10 @@ class TravBot:
         self.browser.find("//input[@name='name']").send_keys(self.username)
         self.browser.find("//input[@name='password']").send_keys(self.password)
         self.browser.find("//button[@value='Login'][@name='s1']").click()
-        '''
-        self.driver.find_element(By.NAME, "name").click()
-        self.driver.find_element(By.NAME, "name").send_keys("fieryfrost")
-        self.driver.find_element(By.NAME, "password").send_keys("342256")
-        self.driver.find_element(By.ID, "s1").click()
-        '''
 
-    def select_village(self, id: int) -> None:
-        index = id
 
+    def select_village(self, village_id: int) -> None:
+        index = village_id
         # check selected village
         ul = self.browser.find("//div[@id='sidebarBoxVillagelist']")
         ul = ul.find_element_by_xpath(".//div[@class='content']")
@@ -59,17 +66,25 @@ class TravBot:
             link = lis[index].find_element_by_xpath(".//a")
             link.click()
 
-    def farm(self, sleeptime) -> None:
+    def farm(self, village: int, sleeptime: int, raidlist_index: int) -> None:
         while True:
+            self.select_village(village)
+            time.sleep(random.randint(300,700)/100)
+            self.browser.get("https://ts15.travian.com/build.php?tt=99&id=39")
+            raidlist = self.browser.find("//div[@id='raidList']")
+            listentries = raidlist.find_elements_by_xpath(".//div")
+            list_to_raid = listentries[raidlist_index].find_element_by_xpath(".//div[@class='listContent ']")
+            classes = list_to_raid.get_attribute("class")
+            if "hide" in classes:
+                # todo handle nonactive raidlists
+                pass
+            c_box = list_to_raid.find_element_by_xpath(".//div[@class='markAll']").find_element_by_xpath(".//input")
+            time.sleep(random.randint(300,700)/100)
+            c_box.click()
+            raid_button = list_to_raid.find_element_by_xpath(".//button[@value='Start raid']")
+            raid_button.click()
             # sleep after farming
             time.sleep(sleeptime + random.randint(-0.15 * sleeptime, 0.15 * sleeptime))
 
     def run(self):
-        self.login()
-        time.sleep(10)
-        self.select_village(2)
-
-
-if __name__ == "__main__":
-    bot = TravBot(url='https://ts15.travian.com', username='Fieryfrost', password='342256', start_args=[], debug=False)
-    bot.run()
+        self.farm(village=0,sleeptime=900,raidlist_index=0)

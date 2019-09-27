@@ -21,7 +21,7 @@ class Client:
         self.current_session_path: str = Settings.current_session_path
         pass
 
-    def firefox(self,) -> None:
+    def firefox(self) -> None:
         options = webdriver.FirefoxOptions()
         self.driver = webdriver.Firefox()
         self.set_config()
