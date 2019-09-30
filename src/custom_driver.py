@@ -49,7 +49,7 @@ class Client:
         # set timeout to find an element in seconds
         self.driver.implicitly_wait(5 * Settings.browser_speed)
         # set page load timeout in seconds
-        self.driver.set_page_load_timeout(30 + Settings.browser_speed)
+        self.driver.set_page_load_timeout(60 + Settings.browser_speed)
 
     # region browser functions
     def get(self, page: str) -> None:

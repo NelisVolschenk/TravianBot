@@ -73,18 +73,21 @@ class TravBot:
             self.browser.get("https://ts15.travian.com/build.php?tt=99&id=39")
             raidlist = self.browser.find("//div[@id='raidList']")
             listentries = raidlist.find_elements_by_xpath(".//div")
-            list_to_raid = listentries[raidlist_index].find_element_by_xpath(".//div[@class='listContent ']")
+            list_to_raid = listentries[raidlist_index].find_element_by_xpath(".//div[contains(@class, 'listContent')]")
             classes = list_to_raid.get_attribute("class")
-            if "hide" in classes:
+            if "listContent hide" in classes:
                 # todo handle nonactive raidlists
-                pass
-            c_box = list_to_raid.find_element_by_xpath(".//div[@class='markAll']").find_element_by_xpath(".//input")
-            time.sleep(random.randint(300,700)/100)
-            c_box.click()
-            raid_button = list_to_raid.find_element_by_xpath(".//button[@value='Start raid']")
-            raid_button.click()
-            # sleep after farming
-            time.sleep(sleeptime + random.randint(-0.15 * sleeptime, 0.15 * sleeptime))
+                #open raid list
+                listentries[raidlist_index].find_element_by_xpath(".//div[@class='openedClosedSwitch switchClosed')]").click()
 
+            else:
+                c_box = list_to_raid.find_element_by_xpath(".//div[@class='markAll']").find_element_by_xpath(".//input")
+                time.sleep(random.randint(300,700)/100)
+                c_box.click()
+                raid_button = list_to_raid.find_element_by_xpath(".//button[@value='Start raid']")
+                raid_button.click()
+                # sleep after farming
+                time.sleep(sleeptime + random.randint(-0.15 * sleeptime, 0.15 * sleeptime))
+            time.sleep(random.randint(2,5))
     def run(self):
         self.farm(village=0,sleeptime=900,raidlist_index=0)
