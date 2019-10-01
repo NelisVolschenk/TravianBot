@@ -1,2 +1,2 @@
-from .Main import TravBot
+from .main import TravBot
 from .settings import Settings

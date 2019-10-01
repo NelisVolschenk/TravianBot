@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.webdriver.firefox.webdriver import FirefoxProfile
 from selenium.webdriver.remote import webelement
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
@@ -23,7 +24,9 @@ class Client:
 
     def firefox(self) -> None:
         options = webdriver.FirefoxOptions()
-        self.driver = webdriver.Firefox()
+        fp = FirefoxProfile(profile_directory=Settings.firefox_profile_path)
+        #fp.set_preference('')
+        self.driver = webdriver.Firefox(firefox_profile=fp)
         self.set_config()
         self.save_session()
 
