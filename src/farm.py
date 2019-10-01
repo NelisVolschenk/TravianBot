@@ -7,6 +7,7 @@ import time
 from datetime import datetime
 from random import randint
 
+
 def start_farming_thread(browser: Client, farmlist_index: int, sleeptime: int) -> None:
     time.sleep(randint(3,7))
     while True:
@@ -22,7 +23,9 @@ def send_farmlist(browser: Client, farmlist_index: int) -> bool:
     time.sleep(randint(3, 7))
     browser.get("https://ts15.travian.com/build.php?tt=99&id=39")
     raidlist = browser.find("//div[@id='raidList']")
-    listentries = raidlist.find_elements_by_xpath(".//div")
+    listentries = raidlist.find_elements_by_xpath("./div[@class= 'listEntry']")
+    for entry in listentries:
+        log(entry)
     # Check if the list to raid is the active list
     # todo fix opening the right tab
     open_close_button = listentries[farmlist_index].find_element_by_xpath(".//div[contains(@class, 'openedClosedSwitch')]")
@@ -35,7 +38,7 @@ def send_farmlist(browser: Client, farmlist_index: int) -> bool:
         time.sleep(2)
     # Raid all farms on the list
     raidlist = browser.find("//div[@id='raidList']")
-    listentries = raidlist.find_elements_by_xpath(".//div")
+    listentries = raidlist.find_elements_by_xpath("./div[@class= 'listEntry']")
     list_to_raid = listentries[farmlist_index].find_element_by_xpath(".//div[contains(@class, 'listContent')]")
     raid_all_box = list_to_raid.find_element_by_xpath(".//div[@class='markAll']").find_element_by_xpath(".//input")
     time.sleep(randint(3, 7))
@@ -45,7 +48,7 @@ def send_farmlist(browser: Client, farmlist_index: int) -> bool:
     # Check if raid was successfu and sleep if it was
     try:
         raidlist = browser.find("//div[@id='raidList']")
-        listentries = raidlist.find_elements_by_xpath(".//div")
+        listentries = raidlist.find_elements_by_xpath("./div[@class= 'listEntry']")
         list_to_raid = listentries[farmlist_index].find_element_by_xpath(".//div[contains(@class, 'listContent')]")
         para = list_to_raid.find_element_by_xpath(".//p")
         print('Raid successful')
