@@ -2,6 +2,7 @@
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchElementException
 import time
 import random
 from .custom_driver import Client
@@ -68,26 +69,35 @@ class TravBot:
 
     def farm(self, village: int, sleeptime: int, raidlist_index: int) -> None:
         while True:
-            self.select_village(village)
+            # Navigate to raidlists
+            #self.select_village(village)
             time.sleep(random.randint(300,700)/100)
             self.browser.get("https://ts15.travian.com/build.php?tt=99&id=39")
             raidlist = self.browser.find("//div[@id='raidList']")
             listentries = raidlist.find_elements_by_xpath(".//div")
-            list_to_raid = listentries[raidlist_index].find_element_by_xpath(".//div[contains(@class, 'listContent')]")
-            classes = list_to_raid.get_attribute("class")
-            if "listContent hide" in classes:
-                # todo handle nonactive raidlists
-                #open raid list
-                listentries[raidlist_index].find_element_by_xpath(".//div[@class='openedClosedSwitch switchClosed')]").click()
-
-            else:
-                c_box = list_to_raid.find_element_by_xpath(".//div[@class='markAll']").find_element_by_xpath(".//input")
-                time.sleep(random.randint(300,700)/100)
-                c_box.click()
-                raid_button = list_to_raid.find_element_by_xpath(".//button[@value='Start raid']")
-                raid_button.click()
-                # sleep after farming
+            #Check if the list to raid is the active list
+            open_close_button = listentries[raidlist_index].find_element_by_xpath(".//div[contains(@class, openedClosedSwitch')]")
+            classes = open_close_button.get_attribute("class")
+            # Make active if not
+            if "openedClosedSwitch switchClosed" in classes:
+                open_close_button.click()
+                time.sleep(2)
+            # Raid all farms on the list
+            list_to_raid = listentries[raidlist_index].find_element_by_xpath(".//div[@class='listContent']")
+            raid_all_box = list_to_raid.find_element_by_xpath(".//div[@class='markAll']").find_element_by_xpath(".//input")
+            time.sleep(random.randint(300,700)/100)
+            raid_all_box.click()
+            raid_button = list_to_raid.find_element_by_xpath(".//button[@value='Start raid']")
+            raid_button.click()
+            # Check if raid was successful and sleep if it was
+            try:
+                para = list_to_raid.find_element_by_xpath(".//p")
+                print('Raid successful')
                 time.sleep(sleeptime + random.randint(-0.15 * sleeptime, 0.15 * sleeptime))
+            except NoSuchElementException:
+                pass
             time.sleep(random.randint(2,5))
+
+
     def run(self):
         self.farm(village=0,sleeptime=900,raidlist_index=0)
