@@ -1,10 +1,6 @@
 
 
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 from .custom_driver import Client
 from .utils import log
 import time
@@ -27,8 +23,38 @@ def start_farming_thread(browser: Client, raidlist: list, sleeptime: int) -> Non
                     log("sending farmlist {} unsuccessful at {}".format(str(farmlist_index), str(datetime.now())))
                     time.sleep(randint(1, 5))
 
+
 def send_farmlist(browser: Client, farmlist_index: int) -> bool:
+
+    # Navigate to farmlist
     browser.get("https://ts15.travian.com/build.php?tt=99&id=39")
+    # xpath strings for elements
+    listentries_xpath = "//div[@id='raidList']/div[@class= 'listEntry']"
+    list_to_raid_xpath = listentries_xpath + "[" + str(farmlist_index) + "]"
+    list_content_xpath = list_to_raid_xpath + "//div[contains(@class, 'listContent')]"
+    open_close_button_xpath = list_to_raid_xpath + "//div[contains(@class, 'openedClosedSwitch')]"
+    raid_all_box_xpath = list_content_xpath + "//div[contains(@class, 'markAll')]//input"
+    raid_button_xpath = list_content_xpath + "//button[@value='Start raid']"
+    success_paragraph = list_content_xpath + "//p"
+
+    # Check if the list to raid is the active list and make active if not
+    open_close_button = browser.find(open_close_button_xpath)
+    open_close_class = open_close_button.get_attribute("class")
+    if "openedClosedSwitch switchClosed" in open_close_class:
+        open_close_button.click()
+    # Select all farms on the list
+    browser.xwait(raid_all_box_xpath).click()
+    # Send all selected farms
+    browser.xwait(raid_button_xpath).click()
+    # Check if raid was successful
+    try:
+        if browser.xwait(success_paragraph):
+            return True
+    except TimeoutException:
+        return False
+
+
+    """
     raidlist = browser.find("//div[@id='raidList']")
     listentries = raidlist.find_elements_by_xpath("./div[@class= 'listEntry']")
     # Check if the list to raid is the active list
@@ -42,8 +68,6 @@ def send_farmlist(browser: Client, farmlist_index: int) -> bool:
         # Raid all farms on the list
         raidlist = browser.find("//div[@id='raidList']")
         wait = WebDriverWait(browser, 30)
-        # xpath strings for elements
-
         xpath_string = "//div[@id='raidList']/div[@class= 'listEntry'][" + str(farmlist_index) +\
                        "]//div[contains(@class, 'listContent')]//div[contains(@class, 'markAll')]"
         wait.until(EC.presence_of_element_located(By.XPATH(xpath_string)))
@@ -64,3 +88,4 @@ def send_farmlist(browser: Client, farmlist_index: int) -> bool:
         return True
     except NoSuchElementException:
         return False
+    """

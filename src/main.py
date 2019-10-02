@@ -53,4 +53,4 @@ class TravBot:
 
 
     def run(self):
-        start_farming_thread(browser=self.browser, raidlist=[0, 1], sleeptime=900)
+        start_farming_thread(browser=self.browser, raidlist=[1, 2], sleeptime=900)

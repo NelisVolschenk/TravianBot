@@ -3,7 +3,11 @@ from selenium.webdriver.firefox.webdriver import FirefoxProfile
 from selenium.webdriver.remote import webelement
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
 from threading import RLock
 import time
 from .utils import log
@@ -77,11 +81,17 @@ class Client:
         if self._headless:
             seconds = seconds / 2
 
-        # doubles the sleep time, proxys are normaly way slower
+        # doubles the sleep time, proxys are normally way slower
         if self.proxy:
             seconds = seconds * 2
 
         time.sleep(seconds)
+
+    def xwait(self, xpath: str, timeout: int = 10) -> None:
+        timeout = timeout * Settings.browser_speed
+        wait = WebDriverWait(self.driver, timeout)
+        return wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
+
 
     def click(self, element: webelement, wait: float = 0.5) -> None:
         ActionChains(self.driver).move_to_element(element).click().perform()
