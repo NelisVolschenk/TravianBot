@@ -7,12 +7,56 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-
+from typing import Any
 from threading import RLock
 import time
 from .utils import log
 from .utils import reconnect_firefox_session
 from .settings import Settings
+
+
+def use_browser(org_func: Any):
+    def wrapper(*args, **kwargs):
+        browser = None
+        for arg in args:
+            if type(arg) is Client:
+                browser = arg
+                break
+
+        for _, value in kwargs.items():
+            if type(value) is Client:
+                browser = value
+                break
+
+        if browser != None:
+            rv = None
+            browser.use()
+
+            try:
+                rv = org_func(*args, **kwargs)
+            except Exception as e:
+                rv = None
+                log("exception in function: {} exception: {}".format(
+                    org_func.__name__, str(e)))
+
+                log("reloading world")
+                url = browser.driver.current_url
+                world = url.split('//')
+                world = world[1]
+                world = world.split('.')
+                world = world[0]
+
+                browser.get('https://{}.travian.com/dorf1.php'.format(world))
+            finally:
+                browser.done()
+
+                return rv
+
+        else:
+            return org_func(*args, **kwargs)
+
+    return wrapper
+
 
 
 class Client:
@@ -46,7 +90,7 @@ class Client:
         self.driver = reconnect_firefox_session(session, url)
         self.set_config()
 
-    def headless(self):
+    def headless(self) -> None:
         # Todo implement headless mode
         log('Headless not implemented yet')
         pass
@@ -57,6 +101,14 @@ class Client:
         self.driver.implicitly_wait(5 * Settings.browser_speed)
         # set page load timeout in seconds
         self.driver.set_page_load_timeout(60 + Settings.browser_speed)
+
+    # region locks
+    def use(self) -> None:
+        self.lock.acquire()
+
+    def done(self) -> None:
+        self.lock.release()
+    # endregion
 
     # region browser functions
     def get(self, page: str) -> None:
@@ -87,11 +139,15 @@ class Client:
 
         time.sleep(seconds)
 
-    def xwait(self, xpath: str, timeout: int = 10) -> None:
+    def xwait(self, xpath: str, timeout: int = 10) -> webelement:
         timeout = timeout * Settings.browser_speed
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
 
+    def xwait_click(self, xpath: str, timeout: int = 10) -> webelement:
+        timeout = timeout * Settings.browser_speed
+        wait = WebDriverWait(self.driver, timeout)
+        return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
 
     def click(self, element: webelement, wait: float = 0.5) -> None:
         ActionChains(self.driver).move_to_element(element).click().perform()
