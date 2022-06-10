@@ -31,7 +31,6 @@ class Client:
                                         firefox_binary=Settings.firefox_dir,
                                         firefox_profile=profile,
                                         options=self.options)
-        self.driver = webdriver.Firefox()
         self.set_config()
 
     def headless(self) -> None:
