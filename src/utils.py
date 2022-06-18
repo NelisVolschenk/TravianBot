@@ -1,4 +1,21 @@
 from selenium import webdriver
+import logging
+from logging.handlers import RotatingFileHandler
+from .settings import Settings
+
+# Create a rotating logger
+def create_rotating_log(path):
+	# Create the logger
+	logger = logging.getLogger("Main Log")
+	logger.setLevel(logging.INFO)
+	# Create a rotating handler
+	handler = RotatingFileHandler(path, maxBytes=1048576, backupCount=5)
+	# Create a formatter and add to handler
+	formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+	handler.setFormatter(formatter)
+	# Add the handler to the logger
+	logger.addHandler(handler)
+	return logger
 
 
 def log(message: str) -> None:

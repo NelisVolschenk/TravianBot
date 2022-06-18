@@ -85,9 +85,9 @@ class Client:
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
 
-    def click(self, element: webelement, wait: float = 0.5) -> None:
-        ActionChains(self.driver).move_to_element(element).click().perform()
-        self.sleep(wait)
+    # def click(self, element: webelement, wait: float = 0.5) -> None:
+    #     ActionChains(self.driver).move_to_element(element).click().perform()
+    #     self.sleep(wait)
 
     def click_v2(self, element: webelement, wait: float = 0.5) -> None:
         ActionChains(self.driver).move_to_element(element).click(element).perform()
