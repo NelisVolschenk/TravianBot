@@ -133,11 +133,12 @@ class TravBot:
         try:
             buildqueue_exists = self.browser.find(buildqueue_xpath)
         except:
-            log(f'Unable to find buildqueue on current page')
-        if not buildqueue_exists:
-            # Go to dorf1
-            self.browser.get(Settings.loginurl + 'dorf1.php')
             pass
+        if not buildqueue_exists:
+            # Go to dorf1 if not on dorf1 or dorf2
+            if (self.browser.current_url() == Settings.loginurl + 'dorf1.php')or(self.browser.current_url() == Settings.loginurl + 'dorf2.php'):
+                log(f'Going to dorf1 to find buildqueue')
+                self.browser.get(Settings.loginurl + 'dorf1.php')
         try:
             buildlist = self.browser.finds(buildqueue_xpath)
             for construction_order in buildlist:
@@ -154,7 +155,10 @@ class TravBot:
         self.buildqueue = [fields_under_construction, buildings_under_construction]
 
     def buildfields(self):
-        self.browser.get(Settings.loginurl + 'dorf1.php')
+
+        if self.browser.current_url() != Settings.loginurl + 'dorf1.php':
+            self.browser.get(Settings.loginurl + 'dorf1.php')
+
         fields_xpath = '//*[@id="resourceFieldContainer"]'
         constructing_xpath = fields_xpath + '/a[contains(concat(" ", normalize-space(@class), " "), " underConstruction ")]'
         constructing = False
@@ -171,9 +175,9 @@ class TravBot:
             log(f'{order}')
             tolevel = order[1]
 
-            if order[0] == "All Fields":
+            if order[0] == 'All Fields':
                 # Find the all fields
-                elements_xpath = fields_xpath + '/a'
+                elements_xpath = fields_xpath + '/a[contains(concat(" ", normalize-space(@class), " "), " level ")]'
 
             elif order[0] in self.fieldnames.keys():
                 # Find the fields with the correct gid
@@ -247,8 +251,8 @@ class TravBot:
                 log(f'Field {elem_id} not upgradeable, classes: {upg_elem_classes}')
 
     def buildvillage(self):
-
-        self.browser.get(Settings.loginurl + 'dorf2.php')
+        if self.browser.current_url() != Settings.loginurl + 'dorf2.php':
+            self.browser.get(Settings.loginurl + 'dorf2.php')
         # self.browser.get('file:///home/nelis/Desktop/Travian/05 town.html')
         town_xpath = '//*[@id="villageContent"]'
         constructing_xpath = town_xpath + '/div/a[contains(concat(" ", normalize-space(@class), " "), " underConstruction ")]'
