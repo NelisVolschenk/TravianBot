@@ -90,8 +90,15 @@ class Client:
     #     self.sleep(wait)
 
     def click_v2(self, element: webelement, wait: float = 0.5) -> None:
-        ActionChains(self.driver).move_to_element(element).click(element).perform()
-        self.sleep(wait)
+        element = self.driver.find_element(By.CSS_SELECTOR, "body")
+        actions = ActionChains(self.driver)
+        actions.move_to_element(element, 0, 0).perform()
+        element = self.driver.find_element(By.CSS_SELECTOR, ".g31Bottom > .highlightShape > path")
+        actions = ActionChains(self.driver)
+        actions.move_to_element(element).perform()
+        self.driver.find_element(By.CSS_SELECTOR, ".g31Bottom > .highlightShape > path").click()
+        # ActionChains(self.driver).move_to_element(element).click(element).perform()
+        # self.sleep(wait)
 
     def hover(self, element: webelement, wait: float = 0.5) -> None:
         ActionChains(self.driver).move_to_element(element).perform()

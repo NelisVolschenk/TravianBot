@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import copy
 import time
+import datetime
 import random
 from .custom_driver import Client
 from .settings import Settings, Gameconstants
@@ -16,9 +17,9 @@ class TravBot:
     def __init__(self, debug: bool = False, startmethod: str = 'firefox') -> None:
         self.fieldlist: list = []
         self.townlist: list = []
-        self.fieldnames: dict = Gameconstants.fieldnames
-        self.buildingtypes: dict = Gameconstants.buildingtypes
         self.buildqueue: list = []
+        self.resources: dict = copy.deepcopy(Gameconstants.resources_dict)
+        self.timers: dict = {'updateresources': datetime.datetime.now()}
         self.browser = Client(debug=debug)
         self.start_method = startmethod
         self.initialise()
@@ -136,7 +137,8 @@ class TravBot:
             pass
         if not buildqueue_exists:
             # Go to dorf1 if not on dorf1 or dorf2
-            if (self.browser.current_url() == Settings.loginurl + 'dorf1.php')or(self.browser.current_url() == Settings.loginurl + 'dorf2.php'):
+            current_url = self.browser.current_url()
+            if (current_url != Settings.loginurl + 'dorf1.php') and (current_url != Settings.loginurl + 'dorf2.php'):
                 log(f'Going to dorf1 to find buildqueue')
                 self.browser.get(Settings.loginurl + 'dorf1.php')
         try:
@@ -145,7 +147,7 @@ class TravBot:
                 namediv = construction_order.find_element_by_xpath('.//div[@class="name"]')
                 namespan = namediv.find_element_by_xpath('./span[@class="lvl"]')
                 name = namediv.text.replace(namespan.text, "").strip()
-                if name in self.fieldnames.keys():
+                if name in Gameconstants.fieldnames.keys():
                     fields_under_construction += 1
                 else:
                     buildings_under_construction += 1
@@ -153,6 +155,29 @@ class TravBot:
         except Exception as e:
             log(f'Nothing currently in buildqueue')
         self.buildqueue = [fields_under_construction, buildings_under_construction]
+
+    def updateres(self):
+        # Refresh the page to ensure everything is up to date when the timer expires
+        if self.timers['updateresources'] < datetime.datetime.now():
+            self.browser.get(Settings.loginurl + 'dorf1.php')
+            waittime = random.randint(Settings.updateres_minsleeptime, Settings.updateres_maxsleeptime)
+            self.timers['updateresources'] = datetime.datetime.now() + datetime.timedelta(seconds=waittime)
+        current_url = self.browser.current_url()
+        if (current_url != Settings.loginurl + 'dorf1.php') and (current_url != Settings.loginurl + 'dorf2.php'):
+            log(f'Going to dorf1 to update resources')
+            self.browser.get(Settings.loginurl + 'dorf1.php')
+        try:
+            warehouse_xpath = '//*[@id="stockBar"]/div[@class="warehouse"]/div/div'
+            granary_xpath = '//*[@id="stockBar"]/div[@class="granary"]/div/div'
+            self.resources['Warehouse'] = int(self.browser.find(warehouse_xpath).text.replace(',', ''))
+            self.resources['Granary'] = int(self.browser.find(granary_xpath).text.replace(',', ''))
+            self.resources['Lumber'] = int(self.browser.find('//*[@id="l1"]').text.replace(',', ''))
+            self.resources['Clay'] = int(self.browser.find('//*[@id="l2"]').text.replace(',', ''))
+            self.resources['Iron'] = int(self.browser.find('//*[@id="l3"]').text.replace(',', ''))
+            self.resources['Crop'] = int(self.browser.find('//*[@id="l4"]').text.replace(',', ''))
+            self.resources['Free Crop'] = int(self.browser.find('//*[@id="stockBarFreeCrop"]').text.replace(',', ''))
+        except:
+            log('Unable to update resources')
 
     def buildfields(self):
 
@@ -179,9 +204,9 @@ class TravBot:
                 # Find the all fields
                 elements_xpath = fields_xpath + '/a[contains(concat(" ", normalize-space(@class), " "), " level ")]'
 
-            elif order[0] in self.fieldnames.keys():
+            elif order[0] in Gameconstants.fieldnames.keys():
                 # Find the fields with the correct gid
-                gid = self.fieldnames[order[0]]
+                gid = Gameconstants.fieldnames[order[0]]
                 elements_xpath = fields_xpath + '/a[contains(concat(" ", normalize-space(@class), " "), " gid'\
                                  + str(gid) \
                                  + ' ")]'
@@ -266,6 +291,9 @@ class TravBot:
         else:
             buildgroup = self.townlist[0]
             for order in buildgroup:
+                # Go to dorf2 if not already there
+                if self.browser.current_url() != Settings.loginurl + 'dorf2.php':
+                    self.browser.get(Settings.loginurl + 'dorf2.php')
                 log(f'Townlist {order}')
                 buildlocation = order[0]
                 tolevel = order[1]
@@ -291,7 +319,13 @@ class TravBot:
                             buildable = self.browser.find(buildable_xpath)
                             if buildable:
                                 log(f'Upgrading building at {buildlocation}')
-                                buildable.click()
+                                # building_xpath = buildable_xpath + '/../*[name()="svg"]/*[@class="highlightShape"]/*[name()="path"]'
+                                # building = self.browser.find(building_xpath)
+                                # self.browser.click_v2(building)
+                                if buildlocation == 40:
+                                    self.browser.get(Settings.loginurl + 'build.php?id=40&gid=31')
+                                else:
+                                    buildable.click()
                                 # self.browser.get('file:///home/nelis/Desktop/Travian/02 build.html')
                                 button_xpath = '//div[@id="build"]' \
                                                + '/div[@class="upgradeBuilding "]' \
@@ -313,16 +347,19 @@ class TravBot:
                         # New building
                         try:
                             # Open the buildslot
-                            slot = order_div.find_element_by_xpath('./*[name()="svg"]/*[name()="path"]')
-                            slot.click()
-                            # Check which tab the building will be on
-                            tab_name = self.buildingtypes[type_id][1]
-                            if tab_name in ['military', 'resources']:
-                                tab_xpath = '//div[@id="build"]/div/div/div' \
-                                            '/a[contains(concat(" ", normalize-space(@class), " "), " ' \
-                                            + tab_name \
-                                            + ' ")]'
-                                self.browser.find(tab_xpath).click()
+                            if buildlocation == 40:
+                                self.browser.get(Settings.loginurl + 'build.php?id=40')
+                            else:
+                                slot = order_div.find_element_by_xpath('./*[name()="svg"]/*[name()="path"]')
+                                slot.click()
+                                # Check which tab the building will be on
+                                tab_name = Gameconstants.buildingtypes[type_id][1]
+                                if tab_name in ['military', 'resources']:
+                                    tab_xpath = '//div[@id="build"]/div/div/div' \
+                                                '/a[contains(concat(" ", normalize-space(@class), " "), " ' \
+                                                + tab_name \
+                                                + ' ")]'
+                                    self.browser.find(tab_xpath).click()
                             div_xpath = '//div[@id="contract_building' \
                                         + str(type_id) \
                                         + '"]/div[@class="contractLink"]'
@@ -349,6 +386,13 @@ class TravBot:
                             log(f'Unable to build building {type_id}  at {buildlocation}')
                 except Exception as e:
                     log(f'Building number {buildlocation} not found')
+
+    def use_hero_resources(self):
+
+        pass
+
+    def collect_quests(self) -> None:
+        pass
 
     # def farm(self, village: int, sleeptime: int, raidlist_index: int) -> None:
     #     while True:
