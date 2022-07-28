@@ -7,6 +7,7 @@ from .custom_driver import Client
 from .settings import Settings, Gameconstants
 from .utils import log
 from .utils import create_rotating_log
+from buildings import costcalc
 from threading import Thread
 import json
 
@@ -19,6 +20,7 @@ class TravBot:
         self.townlist: list = []
         self.buildqueue: list = []
         self.resources: dict = copy.deepcopy(Gameconstants.resources_dict)
+        self.layout: list = copy.deepcopy(Gameconstants.layout_list)
         self.timers: dict = {'updateresources': datetime.datetime.now()}
         self.browser = Client(debug=debug)
         self.start_method = startmethod
@@ -104,6 +106,10 @@ class TravBot:
                 self.updatebuildlistfiles()
             # Check current constructions that are underway
             self.updatebuildqueue()
+            # Update the resources
+            self.updateres()
+            # Check if there is enough res for an upgrade
+
             # Check if the tribe is roman (which has two independent buildslots)
             if Settings.tribe == 'roman':
                 # Check if there are items to be built and no ongoing construction in the fields
@@ -176,10 +182,95 @@ class TravBot:
             self.resources['Iron'] = int(self.browser.find('//*[@id="l3"]').text.replace(',', ''))
             self.resources['Crop'] = int(self.browser.find('//*[@id="l4"]').text.replace(',', ''))
             self.resources['Free Crop'] = int(self.browser.find('//*[@id="stockBarFreeCrop"]').text.replace(',', ''))
+            log(self.resources)
         except:
             log('Unable to update resources')
 
-    def buildfields(self):
+    def checkres(self):
+        # Loop through buildlists to check if upgrades are possible
+        buildable_fieldlist = []
+        buildable_townlist = []
+        for order in self.fieldlist[0]:
+            if order[0] == 'All Fields':
+                # Check if any field is upgradeable
+                for buildingslot in range(1,19):
+                    nextlevel = self.layout[buildingslot]['level'] + 1
+                    gid = self.layout[buildingslot]['gid']
+                    cost = costcalc(gid,nextlevel)
+                    buildable = True
+                    reslist = ['Lumber', 'Clay', 'Iron', 'Crop']
+                    for i in range(4):
+                        check = self.resources[reslist[i]] >= cost[i]
+                        buildable *= check
+                    if buildable:
+                        buildable_fieldlist.append(order)
+                        break
+
+            elif order[0] in Gameconstants.fieldnames.keys():
+                # Check if a field of that type is upgradeable
+                for buildingslot in range(1, 19):
+                    gid = self.layout[buildingslot]['gid']
+                    if gid != Gameconstants.fieldnames[order[0]]:
+                        continue
+                    nextlevel = self.layout[buildingslot]['level'] + 1
+                    cost = costcalc(gid, nextlevel)
+                    buildable = True
+                    reslist = ['Lumber', 'Clay', 'Iron', 'Crop']
+                    for i in range(4):
+                        check = self.resources[reslist[i]] >= cost[i]
+                        buildable *= check
+                    if buildable:
+                        buildable_fieldlist.append(order)
+                        break
+            else:
+                buildingslot = order[0]
+                gid = self.layout[buildingslot]['gid']
+                nextlevel = self.layout[buildingslot]['level'] + 1
+                cost = costcalc(gid, nextlevel)
+                buildable = True
+                reslist = ['Lumber', 'Clay', 'Iron', 'Crop']
+                for i in range(4):
+                    check = self.resources[reslist[i]] >= cost[i]
+                    buildable *= check
+                if buildable:
+                    buildable_fieldlist.append(order)
+
+    def analyzevillage(self):
+        # Analyze the fields
+        self.browser.get(Settings.loginurl + 'dorf1.php')
+        for buildingslot in range(1,19):
+            buildingslot_xpath = '//*[@id="resourceFieldContainer"]' \
+                             + '/a[contains(concat(" ", normalize-space(@class), " "), " buildingSlot' \
+                             + str(buildingslot) \
+                             + ' ")]'
+            buildingslot_element = self.browser.find(buildingslot_xpath)
+            slot_lvl = buildingslot_element.find_element_by_xpath('./div').text
+
+            class_list = buildingslot_element.get_attribute('class').split()
+            slot_gid = None
+            for word in class_list:
+                if 'gid' in word:
+                    slot_gid = word.replace('gid', '')
+                    break
+
+            self.layout[buildingslot]['level'] = slot_lvl
+            self.layout[buildingslot]['gid'] = slot_gid
+
+        # Analyze the town
+        self.browser.get(Settings.loginurl + 'dorf2.php')
+        for buildingslot in range(19,41):
+            buildingslot_xpath = '//*[@id="villageContent"]' + '/div[@data-aid="' + str(buildingslot) + '"]'
+            buildingslot_element = self.browser.find(buildingslot_xpath)
+            slot_gid = int(buildingslot_element.get_attribute('data-gid'))
+
+            lvl_xpath = buildingslot_xpath + '/a'
+            lvl_element = self.browser.find(lvl_xpath)
+            slot_lvl = int(lvl_element.get_attribute('data-level'))
+
+            self.layout[buildingslot]['level'] = slot_lvl
+            self.layout[buildingslot]['gid'] = slot_gid
+
+    def buildfields(self, buildgroup = None):
 
         if self.browser.current_url() != Settings.loginurl + 'dorf1.php':
             self.browser.get(Settings.loginurl + 'dorf1.php')
@@ -195,7 +286,8 @@ class TravBot:
             log(f'Field already under construction')
             return
         # No ongoing construction, can build the field
-        buildgroup = self.fieldlist[0]
+        if buildgroup == None:
+            buildgroup = self.fieldlist[0]
         for order in buildgroup:
             log(f'{order}')
             tolevel = order[1]
@@ -275,7 +367,7 @@ class TravBot:
             except Exception as e:
                 log(f'Field {elem_id} not upgradeable, classes: {upg_elem_classes}')
 
-    def buildvillage(self):
+    def buildvillage(self, buildgroup = None):
         if self.browser.current_url() != Settings.loginurl + 'dorf2.php':
             self.browser.get(Settings.loginurl + 'dorf2.php')
         # self.browser.get('file:///home/nelis/Desktop/Travian/05 town.html')
@@ -289,7 +381,8 @@ class TravBot:
         if constructing:
             log(f'Town already under construction')
         else:
-            buildgroup = self.townlist[0]
+            if buildgroup == None:
+                buildgroup = self.townlist[0]
             for order in buildgroup:
                 # Go to dorf2 if not already there
                 if self.browser.current_url() != Settings.loginurl + 'dorf2.php':
