@@ -7,7 +7,7 @@ from .custom_driver import Client
 from .settings import Settings, Gameconstants
 from .utils import log
 from .utils import create_rotating_log
-from buildings import costcalc
+from buildings import costandupkeepcalc
 from threading import Thread
 import json
 
@@ -18,6 +18,8 @@ class TravBot:
     def __init__(self, debug: bool = False, startmethod: str = 'firefox') -> None:
         self.fieldlist: list = []
         self.townlist: list = []
+        self.buildable_fieldlist: list = []
+        self.buildable_townlist: list = []
         self.buildqueue: list = []
         self.resources: dict = copy.deepcopy(Gameconstants.resources_dict)
         self.layout: list = copy.deepcopy(Gameconstants.layout_list)
@@ -109,7 +111,7 @@ class TravBot:
             # Update the resources
             self.updateres()
             # Check if there is enough res for an upgrade
-
+            self.checkbuildlists()
             # Check if the tribe is roman (which has two independent buildslots)
             if Settings.tribe == 'roman':
                 # Check if there are items to be built and no ongoing construction in the fields
@@ -186,24 +188,24 @@ class TravBot:
         except:
             log('Unable to update resources')
 
-    def checkres(self):
-        # Loop through buildlists to check if upgrades are possible
-        buildable_fieldlist = []
-        buildable_townlist = []
+    def checkbuildlists(self):
+        self.buildable_fieldlist = []
+        self.buildable_townlist = []
+        reslist = ['Lumber', 'Clay', 'Iron', 'Crop', 'Free Crop']
+        # Loop through fieldlist to check if upgrades are possible
         for order in self.fieldlist[0]:
             if order[0] == 'All Fields':
                 # Check if any field is upgradeable
                 for buildingslot in range(1,19):
                     nextlevel = self.layout[buildingslot]['level'] + 1
                     gid = self.layout[buildingslot]['gid']
-                    cost = costcalc(gid,nextlevel)
+                    cost = costandupkeepcalc(gid,nextlevel)
                     buildable = True
-                    reslist = ['Lumber', 'Clay', 'Iron', 'Crop']
-                    for i in range(4):
+                    for i in range(5):
                         check = self.resources[reslist[i]] >= cost[i]
                         buildable *= check
                     if buildable:
-                        buildable_fieldlist.append(order)
+                        self.buildable_fieldlist.append(order)
                         break
 
             elif order[0] in Gameconstants.fieldnames.keys():
@@ -213,27 +215,41 @@ class TravBot:
                     if gid != Gameconstants.fieldnames[order[0]]:
                         continue
                     nextlevel = self.layout[buildingslot]['level'] + 1
-                    cost = costcalc(gid, nextlevel)
+                    cost = costandupkeepcalc(gid, nextlevel)
                     buildable = True
-                    reslist = ['Lumber', 'Clay', 'Iron', 'Crop']
-                    for i in range(4):
+                    for i in range(5):
                         check = self.resources[reslist[i]] >= cost[i]
                         buildable *= check
                     if buildable:
-                        buildable_fieldlist.append(order)
+                        self.buildable_fieldlist.append(order)
                         break
             else:
                 buildingslot = order[0]
                 gid = self.layout[buildingslot]['gid']
                 nextlevel = self.layout[buildingslot]['level'] + 1
-                cost = costcalc(gid, nextlevel)
+                cost = costandupkeepcalc(gid, nextlevel)
                 buildable = True
-                reslist = ['Lumber', 'Clay', 'Iron', 'Crop']
-                for i in range(4):
+                for i in range(5):
                     check = self.resources[reslist[i]] >= cost[i]
                     buildable *= check
                 if buildable:
-                    buildable_fieldlist.append(order)
+                    self.buildable_fieldlist.append(order)
+
+
+
+        # Loop through Townllist to check if upgrades are possible
+        for order in self.townlist[0]:
+            buildingslot = order[0]
+            gid = order[2]
+            nextlevel = self.layout[buildingslot]['level'] + 1
+            cost = costandupkeepcalc(gid, nextlevel)
+            buildable = True
+            for i in range(5):
+                check = self.resources[reslist[i]] >= cost[i]
+                buildable *= check
+            if buildable:
+                self.buildable_townlist.append(order)
+
 
     def analyzevillage(self):
         # Analyze the fields

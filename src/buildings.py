@@ -60,14 +60,12 @@ def timecalc(gid, lvl):
 		b =time[2]
 	return a * (k**(lvl-1)) - b
 
-def costcalc(gid, lvl):
+def costandupkeepcalc(gid, lvl):
 	cost = buildings[gid - 1]["cost"]
 	k = buildings[gid - 1]["k"]
-	result = [0,0,0,0,0]
+	result = [0,0,0,0]
 	for i in range(4):
 		result[i] = round((cost[i] * (k**(lvl-1))) / 5) * 5
-	total = sum(result)
-	result[4] = total
 	return result
 
 def upkeepcalc(gid, lvl):
@@ -85,6 +83,11 @@ def culturecalc(gid, lvl):
 def namecalc(gid):
 	return buildings[gid-1]["name"]
 
+def costandupkeepcalc(gid, lvl):
+	return costandupkeepcalc(gid, lvl) + [upkeepcalc(gid, lvl)]
+
 # def calcstats(gid, lvl):
 # 	return [namecalc(gid), ]
+
+print(costandupkeepcalc(1,5))
 
