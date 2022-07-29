@@ -4,7 +4,7 @@ from pathlib import Path
 class Settings:
 
     firefox_extension_path: str = ''
-    browser_speed: float = 1.0
+    browser_speed: float = 2.0
     # loginurl = 'https://ts30.x3.europe.travian.com/'
     # loginurl = 'https://ts7.x1.international.travian.com/'
     # username = 'Fieryfrost'
@@ -22,8 +22,9 @@ class Settings:
     log_dir = str(base_dir.joinpath('log.txt'))
     build_minsleeptime: int = 49
     build_maxsleeptime: int = 73
-    updateres_minsleeptime: int = 1200
-    updateres_maxsleeptime: int = 1500
+    refresh_minsleeptime: int = 1200
+    refresh_maxsleeptime: int = 1500
+    min_hero_resources = {'Lumber': 1, 'Clay': 1, 'Iron': 1, 'Crop': 1}
 
 
 class Gameconstants:
@@ -34,3 +35,4 @@ class Gameconstants:
     hero_resources_dict = {'Lumber': 0, 'Clay': 0, 'Iron': 0, 'Crop': 0}
     layout_list = [{'level': 0, 'gid': 0} for x in range(41)]
     hero_resource_ids = {'Lumber': 145, 'Clay': 146, 'Iron': 147, 'Crop': 148}
+    reslist = ['Lumber', 'Clay', 'Iron', 'Crop', 'Free Crop']

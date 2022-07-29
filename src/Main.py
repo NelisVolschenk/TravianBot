@@ -10,6 +10,7 @@ from .utils import create_rotating_log
 from .buildings import costandupkeepcalc
 from threading import Thread
 import json
+import math
 
 
 
@@ -24,7 +25,7 @@ class TravBot:
         self.resources: dict = copy.deepcopy(Gameconstants.resources_dict)
         self.hero_resources: dict = copy.deepcopy(Gameconstants.hero_resources_dict)
         self.layout: list = copy.deepcopy(Gameconstants.layout_list)
-        self.timers: dict = {'updateresources': datetime.datetime.now()}
+        self.timers: dict = {'refresh': datetime.datetime.now()}
         self.browser = Client(debug=debug)
         self.start_method = startmethod
         self.initialise()
@@ -55,7 +56,6 @@ class TravBot:
             self.browser.get(Settings.loginurl)
             time.sleep(login_sleeptime)
 
-
     def login(self) -> None:
 
         # self.browser.get('file:///home/nelis/Desktop/Travian/01 fields.html')
@@ -66,7 +66,6 @@ class TravBot:
         self.browser.find("//button[@value='Login']").click()
         # wait until login completes
         time.sleep(10)
-
 
     def select_village(self, village_id: int) -> None:
         index = village_id
@@ -109,6 +108,8 @@ class TravBot:
                 del self.fieldlist[0]
                 del self.townlist [0]
                 self.updatebuildlistfiles()
+            # Check the timers that need to run
+            self.check_timers()
             # Check current constructions that are underway
             self.updatebuildqueue()
             # Update the resources
@@ -116,12 +117,7 @@ class TravBot:
             # Check if there is enough res for an upgrade
             self.checkbuildlists()
             # If there are not enough resources for any construction then try with hero resources
-            if self.buildable_fieldlist == [] and self.buildable_townlist == []:
-                # Update the hero resource values
-                self.update_hero_resources()
-
-
-
+            self.check_hero_resources_needed()
             # Check if the tribe is roman (which has two independent buildslots)
             if Settings.tribe == 'roman':
                 # Check if there are items to be built and no ongoing construction in the fields
@@ -132,13 +128,12 @@ class TravBot:
                     self.buildvillage(self.buildable_townlist)
             # Or a different tribe
             else:
-                #TODO update this aswell
                 # Check if there are items to be built and no ongoing construction
-                if (self.fieldlist[0] != []) and (sum(self.buildqueue) == 0):
-                    self.buildfields()
+                if (self.buildable_fieldlist != []) and (sum(self.buildqueue) == 0):
+                    self.buildfields(self.buildable_fieldlist)
                 # Check if there are items to be built and no ongoing construction
-                if (self.townlist[0] != []) and (sum(self.buildqueue) == 0):
-                    self.buildvillage()
+                if (self.buildable_townlist != []) and (sum(self.buildqueue) == 0):
+                    self.buildvillage(self.buildable_townlist)
 
             sleeptime = random.randint(Settings.build_minsleeptime, Settings.build_maxsleeptime)
             log(f'Sleeping for {sleeptime}')
@@ -176,13 +171,7 @@ class TravBot:
         self.buildqueue = [fields_under_construction, buildings_under_construction]
 
     def updateres(self):
-        # Refresh the page to ensure everything is up to date when the timer expires
-        # TODO move this somewhere else
-        if self.timers['updateresources'] < datetime.datetime.now():
-            self.browser.get(Settings.loginurl + 'dorf1.php')
-            waittime = random.randint(Settings.updateres_minsleeptime, Settings.updateres_maxsleeptime)
-            self.timers['updateresources'] = datetime.datetime.now() + datetime.timedelta(seconds=waittime)
-            self.analyzevillage()
+
         current_url = self.browser.current_url()
         if (current_url != Settings.loginurl + 'dorf1.php') and (current_url != Settings.loginurl + 'dorf2.php'):
             log(f'Going to dorf1 to update resources')
@@ -206,7 +195,9 @@ class TravBot:
             available_res = self.resources
         self.buildable_fieldlist = []
         self.buildable_townlist = []
-        reslist = ['Lumber', 'Clay', 'Iron', 'Crop', 'Free Crop']
+        fieldres = {}
+        townres = {}
+        reslist = Gameconstants.reslist
         # Loop through fieldlist to check if upgrades are possible
         for order in self.fieldlist[0]:
             if order[0] == 'All Fields':
@@ -221,6 +212,9 @@ class TravBot:
                         buildable *= check
                     if buildable:
                         self.buildable_fieldlist.append(order)
+                        if fieldres == {}:
+                            for i in range(4):
+                                fieldres[reslist[i]] = cost[i]
                         break
             elif order[0] in Gameconstants.fieldnames.keys():
                 # Check if a field of that type is upgradeable
@@ -236,6 +230,9 @@ class TravBot:
                         buildable *= check
                     if buildable:
                         self.buildable_fieldlist.append(order)
+                        if fieldres == {}:
+                            for i in range(4):
+                                fieldres[reslist[i]] = cost[i]
                         break
             else:
                 buildingslot = order[0]
@@ -248,6 +245,9 @@ class TravBot:
                     buildable *= check
                 if buildable:
                     self.buildable_fieldlist.append(order)
+                    if fieldres == {}:
+                        for i in range(4):
+                            fieldres[reslist[i]] = cost[i]
 
         # Loop through Townlist to check if upgrades are possible
         for order in self.townlist[0]:
@@ -261,6 +261,10 @@ class TravBot:
                 buildable *= check
             if buildable:
                 self.buildable_townlist.append(order)
+                if townres == {}:
+                    for i in range(4):
+                        townres[reslist[i]] = cost[i]
+        return [fieldres, townres]
 
     def analyzevillage(self):
         # Analyze the fields
@@ -514,6 +518,47 @@ class TravBot:
                 except Exception as e:
                     log(f'Building number {buildlocation} not found')
 
+    def check_hero_resources_needed(self):
+        if Settings.tribe == 'roman':
+            fieldcondition = self.buildable_fieldlist == [] and self.fieldlist[0] != [] and self.buildqueue[0] == 0
+            towncondition = self.buildable_townlist == [] and self.townlist[0] != [] and self.buildqueue[1] == 0
+        else:
+            fieldcondition = self.buildable_fieldlist == [] and self.fieldlist[0] != [] and sum(self.buildqueue) == 0
+            towncondition = self.buildable_townlist == [] and self.townlist[0] != [] and sum(self.buildqueue) == 0
+        # Return if we do not need to use hero resources
+        if not(fieldcondition or towncondition): return
+
+        # Update the hero resource values
+        total_res = {}
+        for res in self.hero_resources.keys():
+            total_res[res] = self.hero_resources[res] - Settings.min_hero_resources[res] + self.resources[res]
+            if res == 'Crop':
+                total_res[res] = min(total_res[res], self.resources['Granary'])
+            else:
+                total_res[res] = min(total_res[res], self.resources['Warehouse'])
+        total_res['Free Crop'] = self.resources['Free Crop']
+        buildcost_list = self.checkbuildlists(total_res)
+        if fieldcondition:
+            buildcost = buildcost_list[0]
+        else:
+            buildcost = buildcost_list[1]
+        res_needed = {}
+        for res_type in Gameconstants.hero_resource_ids.keys():
+            res_needed[res_type] = math.ceil((buildcost[res_type] - self.resources[res_type])/100) * 100
+            # Ensure hero resources are more than the setting minimum
+            usable_res = self.hero_resources[res_type] - Settings.min_hero_resources[res_type]
+            res_needed[res_type] = min(res_needed[res_type], usable_res)
+        self.use_hero_resources(res_needed)
+        self.updateres()
+        self.checkbuildlists()
+
+    def check_timers(self):
+        if self.timers['refresh'] < datetime.datetime.now():
+            waittime = random.randint(Settings.refresh_minsleeptime, Settings.refresh_maxsleeptime)
+            self.timers['refresh'] = datetime.datetime.now() + datetime.timedelta(seconds=waittime)
+            self.analyzevillage()
+            self.update_hero_resources()
+
     def update_hero_resources(self):
         # Goto the correct page
         if self.browser.current_url() != Settings.loginurl + 'hero/inventory':
@@ -558,14 +603,14 @@ class TravBot:
                 continue
             try:
                 self.browser.find(button_xpath).click()
+
             except:
                 pass
-
-
-
+        self.update_hero_resources()
 
     def collect_quests(self) -> None:
-        pass
+        base_xpath = '//button[@id="questmasterButton"]'
+        speech_bubble_xpath = base_xpath + '/div'
 
     # def farm(self, village: int, sleeptime: int, raidlist_index: int) -> None:
     #     while True:
