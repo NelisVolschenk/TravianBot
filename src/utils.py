@@ -2,6 +2,7 @@ from selenium import webdriver
 import logging
 from logging.handlers import RotatingFileHandler
 from .settings import Settings
+import string
 
 # Create a rotating logger
 def create_rotating_log(path):
@@ -20,6 +21,10 @@ def create_rotating_log(path):
 
 def log(message: str) -> None:
     print(message)
+
+def printable(text: str) -> str:
+	return ''.join([x for x in text if x in string.printable])
+
 
 
 def reconnect_firefox_session(session_id, executor_url):

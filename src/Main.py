@@ -5,9 +5,9 @@ import datetime
 import random
 from .custom_driver import Client
 from .settings import Settings, Gameconstants
-from .utils import log
+from .utils import log, printable
 from .utils import create_rotating_log
-from buildings import costandupkeepcalc
+from .buildings import costandupkeepcalc
 from threading import Thread
 import json
 
@@ -22,6 +22,7 @@ class TravBot:
         self.buildable_townlist: list = []
         self.buildqueue: list = []
         self.resources: dict = copy.deepcopy(Gameconstants.resources_dict)
+        self.hero_resources: dict = copy.deepcopy(Gameconstants.hero_resources_dict)
         self.layout: list = copy.deepcopy(Gameconstants.layout_list)
         self.timers: dict = {'updateresources': datetime.datetime.now()}
         self.browser = Client(debug=debug)
@@ -92,6 +93,8 @@ class TravBot:
             buildlists = json.load(json_file)
             self.fieldlist = copy.deepcopy(buildlists['fieldlist'])
             self.townlist = copy.deepcopy(buildlists['townlist'])
+            # Analyze the village
+            self.analyzevillage()
         while True:
             log(f'Fieldlist')
             log(f'{self.fieldlist}')
@@ -112,16 +115,24 @@ class TravBot:
             self.updateres()
             # Check if there is enough res for an upgrade
             self.checkbuildlists()
+            # If there are not enough resources for any construction then try with hero resources
+            if self.buildable_fieldlist == [] and self.buildable_townlist == []:
+                # Update the hero resource values
+                self.update_hero_resources()
+
+
+
             # Check if the tribe is roman (which has two independent buildslots)
             if Settings.tribe == 'roman':
                 # Check if there are items to be built and no ongoing construction in the fields
-                if (self.fieldlist[0] != []) and (self.buildqueue[0] == 0):
-                    self.buildfields()
+                if (self.buildable_fieldlist != []) and (self.buildqueue[0] == 0):
+                    self.buildfields(self.buildable_fieldlist)
                 # Check if there are items to be built and no ongoing construction in the town
-                if (self.townlist[0] != []) and (self.buildqueue[1] == 0):
-                    self.buildvillage()
+                if (self.buildable_townlist != []) and (self.buildqueue[1] == 0):
+                    self.buildvillage(self.buildable_townlist)
             # Or a different tribe
             else:
+                #TODO update this aswell
                 # Check if there are items to be built and no ongoing construction
                 if (self.fieldlist[0] != []) and (sum(self.buildqueue) == 0):
                     self.buildfields()
@@ -150,7 +161,7 @@ class TravBot:
                 log(f'Going to dorf1 to find buildqueue')
                 self.browser.get(Settings.loginurl + 'dorf1.php')
         try:
-            buildlist = self.browser.finds(buildqueue_xpath)
+            buildlist = self.browser.finds(buildqueue_xpath + '/li')
             for construction_order in buildlist:
                 namediv = construction_order.find_element_by_xpath('.//div[@class="name"]')
                 namespan = namediv.find_element_by_xpath('./span[@class="lvl"]')
@@ -166,10 +177,12 @@ class TravBot:
 
     def updateres(self):
         # Refresh the page to ensure everything is up to date when the timer expires
+        # TODO move this somewhere else
         if self.timers['updateresources'] < datetime.datetime.now():
             self.browser.get(Settings.loginurl + 'dorf1.php')
             waittime = random.randint(Settings.updateres_minsleeptime, Settings.updateres_maxsleeptime)
             self.timers['updateresources'] = datetime.datetime.now() + datetime.timedelta(seconds=waittime)
+            self.analyzevillage()
         current_url = self.browser.current_url()
         if (current_url != Settings.loginurl + 'dorf1.php') and (current_url != Settings.loginurl + 'dorf2.php'):
             log(f'Going to dorf1 to update resources')
@@ -177,18 +190,20 @@ class TravBot:
         try:
             warehouse_xpath = '//*[@id="stockBar"]/div[@class="warehouse"]/div/div'
             granary_xpath = '//*[@id="stockBar"]/div[@class="granary"]/div/div'
-            self.resources['Warehouse'] = int(self.browser.find(warehouse_xpath).text.replace(',', ''))
-            self.resources['Granary'] = int(self.browser.find(granary_xpath).text.replace(',', ''))
-            self.resources['Lumber'] = int(self.browser.find('//*[@id="l1"]').text.replace(',', ''))
-            self.resources['Clay'] = int(self.browser.find('//*[@id="l2"]').text.replace(',', ''))
-            self.resources['Iron'] = int(self.browser.find('//*[@id="l3"]').text.replace(',', ''))
-            self.resources['Crop'] = int(self.browser.find('//*[@id="l4"]').text.replace(',', ''))
-            self.resources['Free Crop'] = int(self.browser.find('//*[@id="stockBarFreeCrop"]').text.replace(',', ''))
+            self.resources['Warehouse'] = int(printable(self.browser.find(warehouse_xpath).text.replace(',', '')))
+            self.resources['Granary'] = int(printable(self.browser.find(granary_xpath).text.replace(',', '')))
+            self.resources['Lumber'] = int(printable(self.browser.find('//*[@id="l1"]').text.replace(',', '')))
+            self.resources['Clay'] = int(printable(self.browser.find('//*[@id="l2"]').text.replace(',', '')))
+            self.resources['Iron'] = int(printable(self.browser.find('//*[@id="l3"]').text.replace(',', '')))
+            self.resources['Crop'] = int(printable(self.browser.find('//*[@id="l4"]').text.replace(',', '')))
+            self.resources['Free Crop'] = int(printable(self.browser.find('//*[@id="stockBarFreeCrop"]').text.replace(',', '')))
             log(self.resources)
         except:
             log('Unable to update resources')
 
-    def checkbuildlists(self):
+    def checkbuildlists(self, available_res = None):
+        if available_res == None:
+            available_res = self.resources
         self.buildable_fieldlist = []
         self.buildable_townlist = []
         reslist = ['Lumber', 'Clay', 'Iron', 'Crop', 'Free Crop']
@@ -202,12 +217,11 @@ class TravBot:
                     cost = costandupkeepcalc(gid,nextlevel)
                     buildable = True
                     for i in range(5):
-                        check = self.resources[reslist[i]] >= cost[i]
+                        check = available_res[reslist[i]] >= cost[i]
                         buildable *= check
                     if buildable:
                         self.buildable_fieldlist.append(order)
                         break
-
             elif order[0] in Gameconstants.fieldnames.keys():
                 # Check if a field of that type is upgradeable
                 for buildingslot in range(1, 19):
@@ -218,7 +232,7 @@ class TravBot:
                     cost = costandupkeepcalc(gid, nextlevel)
                     buildable = True
                     for i in range(5):
-                        check = self.resources[reslist[i]] >= cost[i]
+                        check = available_res[reslist[i]] >= cost[i]
                         buildable *= check
                     if buildable:
                         self.buildable_fieldlist.append(order)
@@ -230,14 +244,12 @@ class TravBot:
                 cost = costandupkeepcalc(gid, nextlevel)
                 buildable = True
                 for i in range(5):
-                    check = self.resources[reslist[i]] >= cost[i]
+                    check = available_res[reslist[i]] >= cost[i]
                     buildable *= check
                 if buildable:
                     self.buildable_fieldlist.append(order)
 
-
-
-        # Loop through Townllist to check if upgrades are possible
+        # Loop through Townlist to check if upgrades are possible
         for order in self.townlist[0]:
             buildingslot = order[0]
             gid = order[2]
@@ -245,11 +257,10 @@ class TravBot:
             cost = costandupkeepcalc(gid, nextlevel)
             buildable = True
             for i in range(5):
-                check = self.resources[reslist[i]] >= cost[i]
+                check = available_res[reslist[i]] >= cost[i]
                 buildable *= check
             if buildable:
                 self.buildable_townlist.append(order)
-
 
     def analyzevillage(self):
         # Analyze the fields
@@ -260,13 +271,18 @@ class TravBot:
                              + str(buildingslot) \
                              + ' ")]'
             buildingslot_element = self.browser.find(buildingslot_xpath)
-            slot_lvl = buildingslot_element.find_element_by_xpath('./div').text
-
             class_list = buildingslot_element.get_attribute('class').split()
+            # Get the slot's level
+            slot_lvl = None
+            for word in class_list:
+                if 'level' in word and word != 'level':
+                    slot_lvl = int(word.replace('level', ''))
+                    break
+            # Get the slot's gid
             slot_gid = None
             for word in class_list:
                 if 'gid' in word:
-                    slot_gid = word.replace('gid', '')
+                    slot_gid = int(word.replace('gid', ''))
                     break
 
             self.layout[buildingslot]['level'] = slot_lvl
@@ -278,10 +294,12 @@ class TravBot:
             buildingslot_xpath = '//*[@id="villageContent"]' + '/div[@data-aid="' + str(buildingslot) + '"]'
             buildingslot_element = self.browser.find(buildingslot_xpath)
             slot_gid = int(buildingslot_element.get_attribute('data-gid'))
-
-            lvl_xpath = buildingslot_xpath + '/a'
-            lvl_element = self.browser.find(lvl_xpath)
-            slot_lvl = int(lvl_element.get_attribute('data-level'))
+            if slot_gid == 0:
+                slot_lvl = 0
+            else:
+                lvl_xpath = buildingslot_xpath + '/a'
+                lvl_element = self.browser.find(lvl_xpath)
+                slot_lvl = int(lvl_element.get_attribute('data-level'))
 
             self.layout[buildingslot]['level'] = slot_lvl
             self.layout[buildingslot]['gid'] = slot_gid
@@ -496,9 +514,55 @@ class TravBot:
                 except Exception as e:
                     log(f'Building number {buildlocation} not found')
 
-    def use_hero_resources(self):
+    def update_hero_resources(self):
+        # Goto the correct page
+        if self.browser.current_url() != Settings.loginurl + 'hero/inventory':
+            self.browser.get(Settings.loginurl + 'hero/inventory')
 
-        pass
+        for res, res_id in Gameconstants.hero_resource_ids.items():
+            xpath = '//div[contains(concat(" ", normalize-space(@class), " "), " item' \
+                    + str(res_id) \
+                    + ' ")]/../div[@class="count"]'
+            try:
+                elem = self.browser.find(xpath)
+                val = int(elem.text)
+            except:
+                log(f'No more {res} available')
+                val = 0
+            self.hero_resources[res] = val
+
+    def use_hero_resources(self,res_to_use):
+        # Goto the correct page
+        if self.browser.current_url() != Settings.loginurl + 'hero/inventory':
+            self.browser.get(Settings.loginurl + 'hero/inventory')
+        for res, res_id in Gameconstants.hero_resource_ids.items():
+            if res_to_use[res] == 0: continue
+            xpath = '//div[contains(concat(" ", normalize-space(@class), " "), " item' \
+                    + str(res_id) \
+                    + ' ")]/..'
+            try:
+                elem = self.browser.find(xpath)
+                elem.click()
+            except:
+                log(f'Unable to find {res}')
+                continue
+            base_xpath = '//div[@id="consumableHeroItem"]'
+            input_xpath = base_xpath + '/label/input'
+            button_xpath = base_xpath \
+                           + '/..'\
+                           +'/div[@class="buttonsWrapper"]'\
+                           +'/button[contains(concat(" ", normalize-space(@class), " "), " green ")]'
+            try:
+                self.browser.find(input_xpath).send_keys(res_to_use[res])
+            except:
+                continue
+            try:
+                self.browser.find(button_xpath).click()
+            except:
+                pass
+
+
+
 
     def collect_quests(self) -> None:
         pass
