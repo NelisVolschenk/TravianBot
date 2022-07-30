@@ -92,8 +92,8 @@ class TravBot:
             buildlists = json.load(json_file)
             self.fieldlist = copy.deepcopy(buildlists['fieldlist'])
             self.townlist = copy.deepcopy(buildlists['townlist'])
-            # Analyze the village
-            self.analyzevillage()
+            # # Analyze the village
+            # self.analyzevillage()
         while True:
             log(f'Fieldlist')
             log(f'{self.fieldlist}')
@@ -116,6 +116,10 @@ class TravBot:
             self.updateres()
             # Check if there is enough res for an upgrade
             self.checkbuildlists()
+            # Check if quests are available
+            self.collect_quests()
+            # Check if the hero's points need to be spent
+            self.upgrade_hero('res')
             # If there are not enough resources for any construction then try with hero resources
             self.check_hero_resources_needed()
             # Check if the tribe is roman (which has two independent buildslots)
@@ -191,6 +195,7 @@ class TravBot:
             log('Unable to update resources')
 
     def checkbuildlists(self, available_res = None):
+
         if available_res == None:
             available_res = self.resources
         self.buildable_fieldlist = []
@@ -531,7 +536,7 @@ class TravBot:
         # Update the hero resource values
         total_res = {}
         for res in self.hero_resources.keys():
-            total_res[res] = self.hero_resources[res] - Settings.min_hero_resources[res] + self.resources[res]
+            total_res[res] = max(self.hero_resources[res] - Settings.min_hero_resources[res], 0) + self.resources[res]
             if res == 'Crop':
                 total_res[res] = min(total_res[res], self.resources['Granary'])
             else:
@@ -539,12 +544,23 @@ class TravBot:
         total_res['Free Crop'] = self.resources['Free Crop']
         buildcost_list = self.checkbuildlists(total_res)
         if fieldcondition:
+            if buildcost_list[0] == {}:
+                # Not enough resources to build any field
+                self.checkbuildlists()
+                return
             buildcost = buildcost_list[0]
         else:
+            if buildcost_list[1] == {}:
+                # Not enough resources to build any building
+                self.checkbuildlists()
+                return
             buildcost = buildcost_list[1]
         res_needed = {}
         for res_type in Gameconstants.hero_resource_ids.keys():
-            res_needed[res_type] = math.ceil((buildcost[res_type] - self.resources[res_type])/100) * 100
+            # Make sure only positive numbers are used
+            res_shortfall = max(buildcost[res_type] - self.resources[res_type],0)
+            # Round to next highest 100 resources
+            res_needed[res_type] = math.ceil(res_shortfall/100) * 100
             # Ensure hero resources are more than the setting minimum
             usable_res = self.hero_resources[res_type] - Settings.min_hero_resources[res_type]
             res_needed[res_type] = min(res_needed[res_type], usable_res)
@@ -598,6 +614,7 @@ class TravBot:
                            +'/div[@class="buttonsWrapper"]'\
                            +'/button[contains(concat(" ", normalize-space(@class), " "), " green ")]'
             try:
+                self.browser.find(input_xpath).clear()
                 self.browser.find(input_xpath).send_keys(res_to_use[res])
             except:
                 continue
@@ -608,9 +625,89 @@ class TravBot:
                 pass
         self.update_hero_resources()
 
-    def collect_quests(self) -> None:
+    def collect_quests(self, experience_required = 0) -> None:
+
+        if Settings.use_quests_for_resources is False and experience_required == 0:
+            return
         base_xpath = '//button[@id="questmasterButton"]'
         speech_bubble_xpath = base_xpath + '/div'
+        try:
+            self.browser.find(speech_bubble_xpath).click()
+        except:
+            log(f'No quests to collect')
+            return
+        collectable_xpath = '//div[contains(concat(" ", normalize-space(@class), " "), " achieved ")]'
+        res_value_xpath = collectable_xpath + '//div[@class="reward resources "]/span'
+        xp_value_xpath = collectable_xpath + '//div[@class="reward experience "]/span'
+        button_xpath = './../../../../div/button'
+
+        if experience_required == 0:
+            try:
+                collectable_list = self.browser.finds(xp_value_xpath)
+            except:
+                return
+            for item in collectable_list:
+                try:
+                    button = item.find_element_by_xpath(button_xpath)
+                    button.click()
+                except:
+                    pass
+            self.update_hero_resources()
+        else:
+            xp_collected = 0
+            try:
+                collectable_list = self.browser.finds(xp_value_xpath)
+            except:
+                return
+            for item in collectable_list:
+                try:
+                    xp = int(item.text())
+                    item.find_element_by_xpath(button_xpath).click()
+                    xp_collected += xp
+                    if xp_collected >= experience_required: return
+                except:
+                    pass
+            self.update_hero_resources()
+
+    def upgrade_hero(self, pointallocation_type = 'res'):
+
+        # Check if the hero has levelled up
+        lvlup_xpath = '//div[@id="topBarHero"]/i[@class="levelUp show"]'
+        hero_xpath = '//a[@id="heroImageButton"]'
+        try:
+            self.browser.find(lvlup_xpath)
+        except:
+            log(f'No hero points available')
+            return
+        try:
+            if self.browser.current_url() != Settings.loginurl + 'hero/inventory':
+                self.browser.find(hero_xpath).click()
+        except:
+            log('Unable to open hero frame')
+            return
+        tab_xpath = '//div[@id="heroV2"]/div/div/div/div/a[@data-tab="2"]'
+        try:
+            self.browser.find(tab_xpath).click()
+        except:
+            log('Unable to find the attributes tab')
+            return
+        points_available_xpath = '//div[@class="pointsAvailable"]'
+        points_allocated_xpath = '//input[@name="' + Gameconstants.hero_points_dict[pointallocation_type] + '"]'
+        try:
+            points_available = self.browser.find(points_available_xpath).text
+            points_available = int(points_available)
+            inputelem = self.browser.find(points_allocated_xpath)
+            points_allocated = inputelem.get_attribute("value")
+            points_allocated = int(points_allocated)
+            total_points = points_allocated + points_available
+            inputelem.clear()
+            inputelem.send_keys(total_points)
+            self.browser.find('//button[@id="savePoints"]').click()
+        except:
+            log('Unable to find the amount of points available')
+            return
+
+
 
     # def farm(self, village: int, sleeptime: int, raidlist_index: int) -> None:
     #     while True:

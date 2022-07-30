@@ -10,7 +10,7 @@ class Settings:
     # username = 'Fieryfrost'
     # password = 'Po9SV7Rk8kG49kX8'
     # race = 'roman'
-    loginurl = 'https://ts8.x1.europe.travian.com/'
+    loginurl = 'https://ts50.x5.america.travian.com/'
     username = 'Defman'
     password = 'U9CFtq5rvnnWWFq'
     tribe = 'roman'
@@ -20,11 +20,12 @@ class Settings:
     # firefox_profile_dir = str(base_dir.joinpath('FirefoxPortable', 'Data', 'profile', 'yt5y3tv3.Travian'))
     firefox_profile_dir = str(base_dir.joinpath('FirefoxPortable', 'Data', 'profile', 'ijrma7ke.Test'))
     log_dir = str(base_dir.joinpath('log.txt'))
-    build_minsleeptime: int = 49
-    build_maxsleeptime: int = 73
-    refresh_minsleeptime: int = 1200
-    refresh_maxsleeptime: int = 1500
+    build_minsleeptime: int = 10#49
+    build_maxsleeptime: int = 14#73
+    refresh_minsleeptime: int = 150#1200
+    refresh_maxsleeptime: int = 180#1500
     min_hero_resources = {'Lumber': 1, 'Clay': 1, 'Iron': 1, 'Crop': 1}
+    use_quests_for_resources = True
 
 
 class Gameconstants:
@@ -36,3 +37,4 @@ class Gameconstants:
     layout_list = [{'level': 0, 'gid': 0} for x in range(41)]
     hero_resource_ids = {'Lumber': 145, 'Clay': 146, 'Iron': 147, 'Crop': 148}
     reslist = ['Lumber', 'Clay', 'Iron', 'Crop', 'Free Crop']
+    hero_points_dict = {'str': "fightingStrength",'off':"offBonus",'def':"defBonus",'res':"resourceProduction"}
