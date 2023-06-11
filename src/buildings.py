@@ -89,5 +89,3 @@ def costandupkeepcalc(gid, lvl):
 # def calcstats(gid, lvl):
 # 	return [namecalc(gid), ]
 
-# print(costandupkeepcalc(1,5))
-

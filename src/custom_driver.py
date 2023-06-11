@@ -39,7 +39,7 @@ class Client:
 
 
     def set_config(self) -> None:
-        #todo: check these out
+        # todo: check these out
         # set timeout to find an element in seconds
         self.driver.implicitly_wait(5 * Settings.browser_speed)
         # set page load timeout in seconds
@@ -75,12 +75,12 @@ class Client:
             seconds = seconds * 2
         time.sleep(seconds)
 
-    def xwait(self, xpath: str, timeout: int = 10) -> webelement:
+    def xwait(self, xpath: str, timeout: int = 5) -> webelement:
         timeout = timeout * Settings.browser_speed
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
 
-    def xwait_click(self, xpath: str, timeout: int = 10) -> webelement:
+    def xwait_click(self, xpath: str, timeout: int = 5) -> webelement:
         timeout = timeout * Settings.browser_speed
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
@@ -99,6 +99,9 @@ class Client:
         self.driver.find_element(By.CSS_SELECTOR, ".g31Bottom > .highlightShape > path").click()
         # ActionChains(self.driver).move_to_element(element).click(element).perform()
         # self.sleep(wait)
+
+    def offsetclick(self, element, x, y):
+        ActionChains(self.driver).move_to_element_with_offset(element, x,y).click().perform()
 
     def hover(self, element: webelement, wait: float = 0.5) -> None:
         ActionChains(self.driver).move_to_element(element).perform()

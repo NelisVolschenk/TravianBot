@@ -7,20 +7,26 @@ import string
 # Create a rotating logger
 def create_rotating_log(path):
 	# Create the logger
-	logger = logging.getLogger("Main Log")
-	logger.setLevel(logging.INFO)
-	# Create a rotating handler
-	handler = RotatingFileHandler(path, maxBytes=1048576, backupCount=5)
-	# Create a formatter and add to handler
+	logger = logging.getLogger("Main Logger")
+	logger.setLevel(logging.DEBUG)
+	# Create a rotating filehandler
+	filehandler = RotatingFileHandler(path, maxBytes=1048576, backupCount=5)
+	filehandler.setLevel(logging.DEBUG)
+	# Create a streamhandler to print to console
+	consolehandler = logging.StreamHandler()
+	consolehandler.setLevel(logging.INFO)
+	# Create a formatter and add to filehandler and consolehandler
 	formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-	handler.setFormatter(formatter)
-	# Add the handler to the logger
-	logger.addHandler(handler)
+	filehandler.setFormatter(formatter)
+	consolehandler.setFormatter(formatter)
+	# Add the filehandler and consolehandler to the logger
+	logger.addHandler(filehandler)
+	logger.addHandler(consolehandler)
 	return logger
 
 
 def log(message: str) -> None:
-    print(message)
+	print(message)
 
 def printable(text: str) -> str:
 	return ''.join([x for x in text if x in string.printable])
