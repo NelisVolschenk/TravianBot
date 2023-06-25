@@ -75,12 +75,12 @@ class Client:
             seconds = seconds * 2
         time.sleep(seconds)
 
-    def xwait(self, xpath: str, timeout: int = 10) -> webelement:
+    def xwait(self, xpath: str, timeout: int = 5) -> webelement:
         timeout = timeout * Settings.browser_speed
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.presence_of_element_located((By.XPATH, xpath)))
 
-    def xwait_click(self, xpath: str, timeout: int = 10) -> webelement:
+    def xwait_click(self, xpath: str, timeout: int = 5) -> webelement:
         timeout = timeout * Settings.browser_speed
         wait = WebDriverWait(self.driver, timeout)
         return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))

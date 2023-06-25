@@ -7,7 +7,7 @@ import string
 # Create a rotating logger
 def create_rotating_log(path):
 	# Create the logger
-	logger = logging.getLogger("Main Log")
+	logger = logging.getLogger("Main Logger")
 	logger.setLevel(logging.INFO)
 	# Create a rotating handler
 	handler = RotatingFileHandler(path, maxBytes=1048576, backupCount=5)

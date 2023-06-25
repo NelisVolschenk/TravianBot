@@ -6,11 +6,12 @@ import random
 from .custom_driver import Client
 from .settings import Settings, Gameconstants
 from .utils import log, printable
-from .utils import create_rotating_log
 from .buildings import costandupkeepcalc
 from threading import Thread
 import json
 import math
+import logging
+mainlogger = logging.getLogger("Main Logger")
 
 
 
@@ -95,16 +96,15 @@ class TravBot:
             # # Analyze the village
             # self.analyzevillage()
         while True:
-            log(f'Fieldlist')
-            log(f'{self.fieldlist}')
-            log(f'Townlist')
-            log(f'{self.townlist}')
+            mainlogger.debug(f'Fieldlist: {self.fieldlist}')
+            mainlogger.debug(f'Townlist: {self.townlist}')
             # If both buildlists are empty exit
             if self.fieldlist == [] and self.townlist == []:
-                log(f'Both fieldlist and townlist are empty')
+                mainlogger.debug(f'Both fieldlist and townlist are empty')
                 break
             # Check if buildlists both have empty first priority groups
             if self.fieldlist[0] == [] and self.townlist[0] == []:
+                mainlogger.debug(f'Both fieldlist and townlists first entries are empty')
                 del self.fieldlist[0]
                 del self.townlist [0]
                 self.updatebuildlistfiles()
@@ -140,10 +140,11 @@ class TravBot:
                     self.buildvillage(self.buildable_townlist)
 
             sleeptime = random.randint(Settings.build_minsleeptime, Settings.build_maxsleeptime)
-            log(f'Sleeping for {sleeptime}')
+            mainlogger.info(f'Sleeping for {sleeptime}')
             time.sleep(sleeptime)
 
     def updatebuildqueue(self):
+        mainlogger.info(f'Updating the buildqueue')
         # Check if buildqueue is visible
         buildqueue_xpath = '//div[@class="buildingList"]/ul'
         buildqueue_exists = False
@@ -157,7 +158,7 @@ class TravBot:
             # Go to dorf1 if not on dorf1 or dorf2
             current_url = self.browser.current_url()
             if (current_url != Settings.loginurl + 'dorf1.php') and (current_url != Settings.loginurl + 'dorf2.php'):
-                log(f'Going to dorf1 to find buildqueue')
+                mainlogger.debug(f'Going to dorf1 to find buildqueue')
                 self.browser.get(Settings.loginurl + 'dorf1.php')
         try:
             buildlist = self.browser.finds(buildqueue_xpath + '/li')
@@ -169,16 +170,15 @@ class TravBot:
                     fields_under_construction += 1
                 else:
                     buildings_under_construction += 1
-                log(f'{name} currently in buildqueue')
-        except Exception as e:
-            log(f'Nothing currently in buildqueue')
+                mainlogger.debug(f'{name} currently in buildqueue')
+        except:
+            mainlogger.debug(f'Nothing currently in buildqueue')
         self.buildqueue = [fields_under_construction, buildings_under_construction]
 
     def updateres(self):
-
+        mainlogger.info(f'Updating resources')
         current_url = self.browser.current_url()
         if (current_url != Settings.loginurl + 'dorf1.php') and (current_url != Settings.loginurl + 'dorf2.php'):
-            log(f'Going to dorf1 to update resources')
             self.browser.get(Settings.loginurl + 'dorf1.php')
         try:
             warehouse_xpath = '//*[@id="stockBar"]/div[@class="warehouse"]/div/div'
@@ -190,12 +190,12 @@ class TravBot:
             self.resources['Iron'] = int(printable(self.browser.find('//*[@id="l3"]').text.replace(',', '')))
             self.resources['Crop'] = int(printable(self.browser.find('//*[@id="l4"]').text.replace(',', '')))
             self.resources['Free Crop'] = int(printable(self.browser.find('//*[@id="stockBarFreeCrop"]').text.replace(',', '')))
-            log(self.resources)
+            mainlogger.debug(f'Resources: {self.resources}')
         except:
-            log('Unable to update resources')
+            mainlogger.error(f'Unable to update resources')
 
     def checkbuildlists(self, available_res = None):
-
+        mainlogger.info(f'Checking the buildlists for possible upgrades with available res of {available_res}')
         if available_res == None:
             available_res = self.resources
         self.buildable_fieldlist = []
@@ -272,7 +272,9 @@ class TravBot:
         return [fieldres, townres]
 
     def analyzevillage(self):
+        mainlogger.info(f'Analyzing the village')
         # Analyze the fields
+        mainlogger.debug(f'Analyzing the fields')
         self.browser.get(Settings.loginurl + 'dorf1.php')
         for buildingslot in range(1,19):
             buildingslot_xpath = '//*[@id="resourceFieldContainer"]' \
@@ -569,6 +571,7 @@ class TravBot:
         self.checkbuildlists()
 
     def check_timers(self):
+        mainlogger.debug(f'Checking timers')
         if self.timers['refresh'] < datetime.datetime.now():
             waittime = random.randint(Settings.refresh_minsleeptime, Settings.refresh_maxsleeptime)
             self.timers['refresh'] = datetime.datetime.now() + datetime.timedelta(seconds=waittime)
@@ -598,12 +601,12 @@ class TravBot:
             self.browser.get(Settings.loginurl + 'hero/inventory')
         for res, res_id in Gameconstants.hero_resource_ids.items():
             if res_to_use[res] == 0: continue
-            xpath = '//div[contains(concat(" ", normalize-space(@class), " "), " item' \
+            resource_xpath = '//div[contains(concat(" ", normalize-space(@class), " "), " item' \
                     + str(res_id) \
                     + ' ")]/..'
             try:
-                elem = self.browser.find(xpath)
-                elem.click()
+                time.sleep(Settings.browser_speed/2)
+                self.browser.find(resource_xpath).click()
             except:
                 log(f'Unable to find {res}')
                 continue
@@ -614,13 +617,14 @@ class TravBot:
                            +'/div[@class="buttonsWrapper"]'\
                            +'/button[contains(concat(" ", normalize-space(@class), " "), " green ")]'
             try:
+                time.sleep(Settings.browser_speed/2)
                 self.browser.find(input_xpath).clear()
                 self.browser.find(input_xpath).send_keys(res_to_use[res])
             except:
                 continue
             try:
+                time.sleep(Settings.browser_speed/2)
                 self.browser.find(button_xpath).click()
-
             except:
                 pass
         self.update_hero_resources()
@@ -693,6 +697,7 @@ class TravBot:
             return
         points_available_xpath = '//div[@class="pointsAvailable"]'
         points_allocated_xpath = '//input[@name="' + Gameconstants.hero_points_dict[pointallocation_type] + '"]'
+        save_points_button_xpath = '//button[@id="savePoints"]'
         try:
             points_available = self.browser.find(points_available_xpath).text
             points_available = int(points_available)
@@ -702,11 +707,22 @@ class TravBot:
             total_points = points_allocated + points_available
             inputelem.clear()
             inputelem.send_keys(total_points)
-            self.browser.find('//button[@id="savePoints"]').click()
+            self.browser.xwait_click(save_points_button_xpath)
+            self.browser.find(save_points_button_xpath).click()
+            # This is to wait for the button click to go through
+            self.browser.find('//button[@id="savePoints"][@disabled=""]')
         except:
             log('Unable to find the amount of points available')
             return
 
+    def do_adventure(self):
+        adventure_xpath = '//a[@class="layoutButton buttonFramed withIcon round adventure green    attention"]'
+        adventure_num_xpath = adventure_xpath + '/div[@class="content"]'
+
+        try:
+            adventure_num = int(self.browser.find(adventure_num_xpath).text)
+        except:
+            pass
 
 
     # def farm(self, village: int, sleeptime: int, raidlist_index: int) -> None:

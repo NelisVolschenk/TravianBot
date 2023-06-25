@@ -10,7 +10,7 @@ class Settings:
     # username = 'Fieryfrost'
     # password = 'Po9SV7Rk8kG49kX8'
     # race = 'roman'
-    loginurl = 'https://ts50.x5.america.travian.com/'
+    loginurl = 'https://ts2.x1.international.travian.com/'
     username = 'Defman'
     password = 'U9CFtq5rvnnWWFq'
     tribe = 'roman'
