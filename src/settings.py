@@ -1,3 +1,4 @@
+import random
 from pathlib import Path
 import datetime
 
@@ -10,7 +11,7 @@ class Settings:
     # username = 'Fieryfrost'
     # password = 'Po9SV7Rk8kG49kX8'
     # race = 'roman'
-    loginurl = 'https://ts6.x1.international.travian.com/'
+    loginurl = 'https://ts2.x1.europe.travian.com/'
     username = 'Defman'
     password = 'U9CFtq5rvnnWWFq'
     tribe = 'roman'
@@ -21,12 +22,15 @@ class Settings:
     # firefox_profile_dir = str(base_dir.joinpath('FirefoxPortable', 'Data', 'profile', 'yt5y3tv3.Travian'))
     firefox_profile_dir = str(base_dir.joinpath('FirefoxPortable', 'Data', 'profile', 'ijrma7ke.Test'))
     log_dir = str(base_dir.joinpath('log.txt'))
-    bot_minsleeptime: int = round(49 / gamespeed)
-    bot_maxsleeptime: int = round(73 / gamespeed)
-    analyze_minsleeptime: int = round(1200 / gamespeed)
-    analyze_maxsleeptime: int = round(1500 / gamespeed)
-    analyze_all_minsleeptime: int = round(3600 / gamespeed)
-    analyze_all_maxsleeptime: int = round(4800 / gamespeed)
+    bot_minsleeptime: int = round(8 / gamespeed)
+    bot_maxsleeptime: int = round(10 / gamespeed)
+    bot_min_logintime: int = round(3600 / gamespeed)
+    bot_max_logintime: int = round(5400 / gamespeed)
+    bot_min_logout_ratio: float = 0.10
+    bot_max_logout_ratio: float = 0.15
+    analyze_all_minsleeptime: int = round(1200 / gamespeed)
+    analyze_all_maxsleeptime: int = round(1500 / gamespeed)
+    hero_res_retry_time: int = round(300 / gamespeed)
     min_hero_resources = {'Lumber': 1, 'Clay': 1, 'Iron': 1, 'Crop': 1}
     use_quests_for_resources = True
 
@@ -39,17 +43,24 @@ class Gameconstants:
     hero_resource_ids = {'Lumber': 145, 'Clay': 146, 'Iron': 147, 'Crop': 148}
     reslist = ['Lumber', 'Clay', 'Iron', 'Crop', 'Free Crop']
     hero_points_dict = {'str': "fightingStrength",'off':"offBonus",'def':"defBonus",'res':"resourceProduction"}
-    account_timers: dict = {'analyze_all': datetime.datetime.now(), }
+    account_timers: dict = {
+        'analyze_all': datetime.datetime.now(),
+        'hero_res': datetime.datetime.now(),
+        'logintime': datetime.datetime.now(),
+        'logouttime': datetime.datetime.now(),
+    }
     villagelist = [
         {'id': None,
          'resources': {'Warehouse': 0, 'Granary': 0, 'Lumber': 0, 'Clay': 0, 'Iron': 0, 'Crop': 0, 'Free Crop': 0, 'update_time':datetime.datetime.now()},
          'res_prod': {'Lumber': 0, 'Clay': 0, 'Iron': 0, 'Crop': 0},
          'layout': [{'level': 0, 'gid': 0} for x in range(41)],
-         'buildqueue': [],
+         'buildqueue': [0,0],
          'fieldlist': [],
          'townlist': [],
          'buildable_fieldlist': [],
          'buildable_townlist': [],
-         'timers': {},
+         'timers': {'fieldqueue': datetime.datetime.now(),
+                    'townqueue': datetime.datetime.now()},
+         'hero_res_usable': 1
          }
     ]
