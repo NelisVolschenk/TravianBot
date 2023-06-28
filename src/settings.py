@@ -17,7 +17,7 @@ class Settings:
     tribe = 'roman'
     gamespeed = 1
     base_dir = Path(__file__).resolve().parents[1]
-    geckodriver_dir = str(base_dir.joinpath('Geckodriver', 'Linux', 'geckodriver'))
+    geckodriver_dir = str(base_dir.joinpath('Geckodriver', 'Linux', 'linux32'))
     firefox_dir = str(base_dir.joinpath('FirefoxPortable', 'App', 'Firefox', 'firefox'))
     # firefox_profile_dir = str(base_dir.joinpath('FirefoxPortable', 'Data', 'profile', 'yt5y3tv3.Travian'))
     firefox_profile_dir = str(base_dir.joinpath('FirefoxPortable', 'Data', 'profile', 'ijrma7ke.Test'))
